@@ -1,7 +1,7 @@
 __author__ = 'Aguilar'
 
+from collections import defaultdict
 import random
-import copy
 random.seed()
 
 
@@ -10,14 +10,14 @@ class MatchBox:
     # the possible moves for this game_board, and the initial
     # one point (or poker chips) for each move.
     def __init__(self, game_board):
-        self.board = copy.deepcopy(game_board)
+        self.board = game_board[:]
 
-        #key: move index, value: points for this move
+        # key: move index, value: points for this move
         self.possible_moves = {}
 
-        #assign the points for each move
+        # assign the points for each move
         for i, j in enumerate(self.board):
-            if j is False:
+            if not j:
                 self.possible_moves[i] = 1
 
 
@@ -41,72 +41,72 @@ def treble_cross():
     games_played = 0
 
     while num_of_squares < 3:
-        #number of boxes that you want to play with
+        # number of boxes that you want to play with
         num_of_squares = int(input("How many Boxes do you want to play with? "))
         if num_of_squares >= 3:
             break
-        print "\nYou need at least 3 boxes to play.\n"
+        print("\nYou need at least 3 boxes to play.\n")
 
     games_to_play = int(input("How many games do you want the computers to play? "))
 
     while games_played < games_to_play:
-        #initialize the game_board
-        game_board = [False for i in range(num_of_squares)]
-        #start playing
+        # initialize the game_board
+        game_board = [False for _ in range(num_of_squares)]
+        # start playing
         play(game_board)
         games_played += 1
 
-    print "\n\n***COMPUTER 1 RESULTS***"
-    print "Wins: {0}".format(comp1_data.wins)
-    print "Resigns: {0}".format(comp1_data.resigns)
+    print("\n\n***COMPUTER 1 RESULTS***")
+    print("Wins: {0}".format(comp1_data.wins))
+    print("Resigns: {0}".format(comp1_data.resigns))
 
-    print "\n\n***COMPUTER 2 RESULTS***"
-    print "Wins: {0}".format(comp2_data.wins)
-    print "Resigns: {0}".format(comp2_data.resigns)
+    print("\n\n***COMPUTER 2 RESULTS***")
+    print("Wins: {0}".format(comp2_data.wins))
+    print("Resigns: {0}".format(comp2_data.resigns))
 
 
 def play(game_board):
 
     game_over = False
-    #keep track of the number of moves made
+    # keep track of the number of moves made
     moves = 0
 
     while not game_over:
+
         # comp1 move
         moves, resign = make_move(game_board, comp1_data, moves)
+
         if resign:
-            comp1_data.resigns += 1
-            handle_end_game(comp2_data, comp1_data)
+            handle_resign(resigner=comp1_data, winner=comp2_data)
             break
-        #check to see if the computer won.
-        #if more than three moves have been made
-        #then check if anybody has won
+        # check to see if the computer won.
+        # if more than three moves have been made
+        # then check if anybody has won
         if moves >= 3:
             game_over = check_for_win(game_board)
             if game_over:
-                handle_end_game(comp1_data, comp2_data)
+                handle_end_game(winner=comp1_data, loser=comp2_data)
                 break
 
-        #comp2 move
+        # comp2 move
         moves, resign = make_move(game_board, comp2_data, moves)
         if resign:
-            comp2_data.resigns += 1
-            handle_end_game(comp1_data, comp2_data)
+            handle_resign(resigner=comp2_data, winner=comp1_data)
             break
 
-        #check to see if the computer won.
-        #if more than three moves have been made
-        #then check if anybody has won
+        # check to see if the computer won.
+        # if more than three moves have been made
+        # then check if anybody has won
         if moves >= 3:
             game_over = check_for_win(game_board)
             if game_over:
-                handle_end_game(comp2_data, comp1_data)
+                handle_end_game(winner=comp2_data, loser=comp1_data)
                 break
 
 
 def make_move(game_board, comp_data, moves):
     if str(game_board) not in comp_data.matchboxes:
-        #create the matchbox if it doesnt exist
+        # create the matchbox if it doesnt exist
         matchbox = MatchBox(game_board)
         comp_data.matchboxes[str(game_board)] = matchbox
 
@@ -124,22 +124,29 @@ def make_move(game_board, comp_data, moves):
     return moves + 1, False
 
 
-def handle_end_game(winner, loser):
+def handle_end_game(*, winner, loser):
     loser.score_sheet.append("L")
     winner.score_sheet.append("W")
     winner.wins += 1
 
     loser.matchboxes = punish_move(loser.matchboxes, loser.move_index)
-    #disp_board(game_board)
 
 
-#simply prints the board to the console
+def handle_resign(*, resigner, winner):
+    resigner.resigns += 1
+    handle_end_game(winner=winner, loser=resigner)
+
+
+# simply prints the board to the console
 def print_board(game_board):
-    for i in range(len(game_board)):
-        if game_board[i]:
-            print "[X]",
+    sb = ["| "]
+    for i, move in enumerate(game_board,  1):
+        if move:
+            sb.append("X")
         else:
-            print "[{0}]".format(i + 1),
+            sb.append("{0}".format(i))
+        sb.append(" | ")
+    print(''.join(sb))
 
 
 def check_for_win(game_board):
@@ -147,10 +154,8 @@ def check_for_win(game_board):
     # We are using True as an X instead.
     game_over = False
     for i in range(len(game_board) - 2):
-        if game_board[i]:
-            if game_board[i + 1]:
-                if game_board[i + 2]:
-                    game_over = True
+        if game_board[i] and game_board[i + 1] and game_board[i + 2]:
+            game_over = True
     return game_over
 
 
@@ -163,7 +168,7 @@ def calculate_move(game_board, matchboxes):
     chip_sum = sum(chips)
 
     if chip_sum <= 0:
-        return 0, [copy.deepcopy(game_board), 0], True
+        return 0, [game_board[:], 0], True
 
     r = random.randint(1, chip_sum)
     # randomly select a moved and take the weigths
@@ -176,18 +181,18 @@ def calculate_move(game_board, matchboxes):
                 break
 
     move = index
-    last_move_index = (copy.deepcopy(game_board), index)
+    last_move_index = (game_board[:], index)
     return move, last_move_index, resign
 
 
-#update the matchbox for the loser.
+# update the matchbox for the loser.
 def punish_move(matchboxes, move_index):
     # if the last move index is 0 then punish the move before that, otherwise
     # punish the last one
 
     game_board = move_index[-1][0]
     matchbox = matchboxes.get(str(game_board))
-    chip_sum = sum(matchbox.possible_moves.itervalues())
+    chip_sum = sum(matchbox.possible_moves.values())
 
     if chip_sum == 0:
         move_before_last = move_index[-2][1]
@@ -195,7 +200,7 @@ def punish_move(matchboxes, move_index):
         matchbox = matchboxes.get(str(game_board))
         matchbox.possible_moves[move_before_last] -= 1
     else:
-        #punish this move
+        # punish this move
         last_move = move_index[-1][1]
         matchbox.possible_moves[last_move] -= 1
 
